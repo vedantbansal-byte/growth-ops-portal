@@ -1,35 +1,34 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # 1. Page Config & Modern UI Styling
 st.set_page_config(page_title="Growth Ops Command Center", layout="wide", page_icon="🚀")
 
 st.markdown("""
     <style>
-    .metric-card {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 15px;
-        border-left: 5px solid #4F46E5;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
     .stMetric {
         background-color: #ffffff;
-        padding: 10px;
+        padding: 12px;
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Live Google Sheets Connection (0-second caching delay)
-conn = st.connection("gsheets", type=GSheetsConnection)
-sheet_url = "https://docs.google.com/spreadsheets/d/1TBqrGanctrLd3tVNm8OQTuxErXD1j5d_egMEgENtyZ8/export?format=csv&gid=1524369576"
-df = conn.read(spreadsheet=sheet_url, ttl=0)
+# 2. Direct Published CSV Import (Bypasses org domain restrictions)
+PUBLISHED_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUaNVUbWKiScK0bdDM4aO3YU6MTkuYrwKUEKcBggmSK1eO5uEVHkQUpkL8jNsYvN1_8wVUT2WfyLwJ/pub?gid=247608123&single=true&output=csv"
+
+@st.cache_data(ttl=0)
+def load_data():
+    return pd.read_csv(PUBLISHED_CSV_URL)
+
+try:
+    df = load_data()
+except Exception as e:
+    st.error(f"Failed to load published sheet data: {e}")
+    st.stop()
 
 # 3. Sidebar Navigation
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/1828/1828884.png", width=40)
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Select View:", ["🏠 Home Dashboard", "📋 Seller Details", "📈 Metabase View"])
 
@@ -38,7 +37,7 @@ page = st.sidebar.radio("Select View:", ["🏠 Home Dashboard", "📋 Seller Det
 # ---------------------------------------------------------
 if page == "🏠 Home Dashboard":
     st.title("📊 Home Dashboard & KPI Overview")
-    st.caption("Live totals and completion rates calculated directly from Master Sheet")
+    st.caption("Live metrics calculated directly from Published Master Sheet")
     
     # Calculate Numeric Totals
     total_start = df['startofweekbudget'].sum() if 'startofweekbudget' in df else 0
@@ -72,11 +71,11 @@ if page == "🏠 Home Dashboard":
 
     st.markdown("---")
     
-    # Interactive Unplanned Amount Drill-Down
+    # Interactive Metric Drill-Down
     st.subheader("🔍 Interactive Metric Drill-Down")
     with st.expander("Click here to view Sellers with Unplanned Scaledown Amounts", expanded=False):
         if 'unplanned scaledown' in df and 'Seller Name' in df:
-            unplanned_df = df[df['unplanned scaledown'] > 0][['Seller ID', 'Seller Name', 'unplanned scaledown']]
+            unplanned_df = df[df['unplanned scaledown'] > 0][['Seller Name', 'unplanned scaledown']]
             st.dataframe(unplanned_df, use_container_width=True)
         else:
             st.info("No unplanned scaledown entries found.")
@@ -87,65 +86,18 @@ if page == "🏠 Home Dashboard":
 elif page == "📋 Seller Details":
     st.title("📋 Seller Master View")
     
-    # Live Search Bar
-    search = st.text_input("🔍 Search Seller by Name or ID:")
+    search = st.text_input("🔍 Search Seller by Name:")
     filtered_df = df
-    if search:
+    if search and 'Seller Name' in df:
         filtered_df = df[df['Seller Name'].astype(str).str.contains(search, case=False, na=False)]
 
     st.dataframe(filtered_df, use_container_width=True, height=400)
-    
-    st.markdown("---")
-    st.subheader("🔎 Detailed Seller Expand View")
-    
-    if 'Seller Name' in df:
-        selected_seller = st.selectbox("Select a Seller to inspect in-depth:", filtered_df['Seller Name'].unique())
-        
-        if selected_seller:
-            s_row = df[df['Seller Name'] == selected_seller].iloc[0]
-            
-            with st.container():
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.info(f"**Seller ID:** {s_row.get('Seller ID', 'N/A')}")
-                    st.write(f"**Growth Lead:** {s_row.get('Growth Lead', 'N/A')}")
-                    st.write(f"**Current Budget:** ₹{s_row.get('Current_budget', 0):,}")
-                with col_b:
-                    st.success(f"**TS Status:** {s_row.get('TS', 'N/A')}")
-                    st.write(f"**Action Status:** {s_row.get('Action', 'N/A')}")
-                    st.write(f"**Week Target:** ₹{s_row.get('week_target', 0):,}")
-            
-                st.markdown("#### 💬 WhatsApp Messages")
-                tab1, tab2 = st.tabs(["Part A SOP Message", "Part B SOP Message"])
-                with tab1:
-                    st.text_area("Copy Part A:", s_row.get('Part A Message', 'No message generated'), height=150)
-                with tab2:
-                    st.text_area("Copy Part B:", s_row.get('Part B Message', 'No message generated'), height=150)
 
 # ---------------------------------------------------------
-# PAGE 3: METABASE ANALYTICS
+# PAGE 3: METABASE ANALYTICS VIEW
 # ---------------------------------------------------------
 elif page == "📈 Metabase View":
-    st.title("📈 Metabase Analytics Dashboard")
+    st.title("📈 Metabase Directory View")
+    st.caption("Direct overview of active Metabase queries")
     
-    s_id = st.text_input("Enter Seller ID to load Metabase metrics:")
-    
-    if s_id:
-        match = df[df['Seller ID'].astype(str) == s_id]
-        if not match.empty:
-            data = match.iloc[0]
-            st.success(f"Displaying Metabase profile for: **{data.get('Seller Name', 'Unknown')}**")
-            
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Start of Week Budget", f"₹{data.get('startofweekbudget', 0):,}")
-            m2.metric("Current Budget", f"₹{data.get('Current_budget', 0):,}")
-            m3.metric("Target Budget", f"₹{data.get('week_target', 0):,}")
-            
-            # Interactive Bar Chart Representation
-            chart_df = pd.DataFrame({
-                "Stage": ["Start of Week", "Current Budget", "Week Target"],
-                "Amount (₹)": [data.get('startofweekbudget', 0), data.get('Current_budget', 0), data.get('week_target', 0)]
-            })
-            st.bar_chart(chart_df.set_index("Stage"))
-        else:
-            st.warning("Seller ID not found in sheet.")
+    st.dataframe(df, use_container_width=True)
