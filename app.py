@@ -25,11 +25,8 @@ st.markdown("""
 
 # 2. Live Google Sheets Connection (0-second caching delay)
 conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(
-    spreadsheet="https://docs.google.com/spreadsheets/d/1TBqrGanctrLd3tVNm8OQTuxErXD1j5d_egMEgENtyZ8/edit",
-    worksheet="Part A W36",
-    ttl=0
-)
+sheet_url = "https://docs.google.com/spreadsheets/d/1TBqrGanctrLd3tVNm8OQTuxErXD1j5d_egMEgENtyZ8/export?format=csv&gid=1524369576"
+df = conn.read(spreadsheet=sheet_url, ttl=0)
 
 # 3. Sidebar Navigation
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/1828/1828884.png", width=40)
