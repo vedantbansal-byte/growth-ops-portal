@@ -19,13 +19,13 @@
       <div class="p-3 bg-indigo-600 rounded-lg"><i class="fa-solid fa-rocket text-xl text-white"></i></div>
       <div>
         <h1 class="text-xl font-bold">Growth Ops Command Center</h1>
-        <p id="status-text" class="text-xs text-emerald-400">● Live Auto-Sync Active</p>
+        <p id="status-text" class="text-xs text-amber-400">● Initializing Sync...</p>
       </div>
     </div>
     
     <!-- Sync URL Input -->
     <div class="flex items-center space-x-2 w-1/2">
-      <input type="text" id="sheet-url-input" placeholder="Paste Published Google Sheet CSV URL here..." class="w-full bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
+      <input type="text" id="sheet-url-input" placeholder="Paste Direct Google Sheet CSV URL..." class="w-full bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
       <button onclick="saveAndSyncUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg whitespace-nowrap">🔄 Sync Live Data</button>
     </div>
 
@@ -107,7 +107,6 @@
       <input type="text" id="seller-search" onkeyup="renderSellersView()" placeholder="🔍 Search Seller Name or Category..." class="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs w-72 focus:outline-none focus:border-indigo-500">
     </div>
 
-    <!-- Seller Cards Grid -->
     <div id="seller-cards-grid" class="grid grid-cols-3 gap-4"></div>
   </div>
 
@@ -149,6 +148,7 @@
   </div>
 
   <script>
+    const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/1YRp4959yr6wrgpFPQBf5PgmYQiBvv1TzwkOGM4wacdI/export?format=csv&gid=247608123";
     let globalData = [];
 
     const baseMetabaseQueries = [
@@ -167,11 +167,9 @@
     ];
 
     window.onload = function() {
-      let savedUrl = localStorage.getItem('growth_ops_sheet_url');
-      if (savedUrl) {
-        document.getElementById('sheet-url-input').value = savedUrl;
-        fetchLiveData(savedUrl);
-      }
+      let savedUrl = localStorage.getItem('growth_ops_sheet_url') || DEFAULT_CSV_URL;
+      document.getElementById('sheet-url-input').value = savedUrl;
+      fetchLiveData(savedUrl);
     };
 
     function switchTab(tab) {
@@ -181,32 +179,35 @@
 
     function saveAndSyncUrl() {
       let url = document.getElementById('sheet-url-input').value.trim();
-      if (!url) return alert("Please paste a valid Google Sheet CSV URL");
+      if (!url) url = DEFAULT_CSV_URL;
       localStorage.setItem('growth_ops_sheet_url', url);
       fetchLiveData(url);
     }
 
     function fetchLiveData(url) {
+      document.getElementById('status-text').className = "text-xs text-amber-400";
       document.getElementById('status-text').innerText = "⏳ Fetching live data...";
 
-      // Directly fetch from published CSV url
       Papa.parse(url, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           if (!results.data || results.data.length === 0) {
-            document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Empty CSV.";
+            document.getElementById('status-text').className = "text-xs text-rose-500";
+            document.getElementById('status-text').innerText = "❌ Empty or Invalid CSV Data";
             return;
           }
           globalData = results.data;
+          document.getElementById('status-text').className = "text-xs text-emerald-400";
           document.getElementById('status-text').innerText = "● Live Data Connected";
           processMetrics();
           renderSellersView();
         },
         error: function(err) {
           console.error(err);
-          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Check Sheet Link.";
+          document.getElementById('status-text').className = "text-xs text-rose-500";
+          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Check Link.";
         }
       });
     }
@@ -258,7 +259,7 @@
         let sellerName = getKey(row, ['Seller Name', 'seller']) || 'Unknown';
         let category = getKey(row, ['Category']) || 'General';
 
-        if (unplannedVal > 0 || unplannedVal < 0) {
+        if (unplannedVal !== 0) {
           unplannedSellers.push({ name: sellerName, category: category, amount: Math.abs(unplannedVal) });
         }
       });
