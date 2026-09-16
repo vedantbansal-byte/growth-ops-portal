@@ -167,6 +167,22 @@
       { name: "Gender Breakdown", base: "https://metabase.kaip.in/question/5150-gender-breakdown-meta", type: "curr_range" }
     ];
 
+    // Helper to format any standard Google Sheet URL into a direct CSV export URL
+    function formatToCsvUrl(inputUrl) {
+      if (!inputUrl) return DEFAULT_CSV_URL;
+      if (inputUrl.includes('/export?format=csv')) return inputUrl;
+      
+      const sheetIdMatch = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      const gidMatch = inputUrl.match(/gid=([0-9]+)/);
+
+      if (sheetIdMatch) {
+        const sheetId = sheetIdMatch[1];
+        const gid = gidMatch ? gidMatch[1] : '0';
+        return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+      }
+      return inputUrl;
+    }
+
     window.onload = function() {
       let savedUrl = localStorage.getItem('growth_ops_sheet_url') || DEFAULT_CSV_URL;
       document.getElementById('sheet-url-input').value = savedUrl;
@@ -186,20 +202,20 @@
 
     function saveAndSyncUrl() {
       let url = document.getElementById('sheet-url-input').value.trim();
-      if (!url) url = DEFAULT_CSV_URL;
-      localStorage.setItem('growth_ops_sheet_url', url);
-      fetchLiveData(url);
+      let formattedUrl = formatToCsvUrl(url);
+      document.getElementById('sheet-url-input').value = formattedUrl;
+      localStorage.setItem('growth_ops_sheet_url', formattedUrl);
+      fetchLiveData(formattedUrl);
     }
 
     function fetchLiveData(rawUrl) {
       document.getElementById('status-text').className = "text-xs text-amber-400";
       document.getElementById('status-text').innerText = "⏳ Fetching live data...";
 
-      // Bypass CORS restrictions using corsproxy.io wrapper
-      let targetUrl = rawUrl;
-      if (!rawUrl.includes('corsproxy.io')) {
-        targetUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl);
-      }
+      let formattedUrl = formatToCsvUrl(rawUrl);
+      
+      // Wrap through CORS proxy
+      let targetUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(formattedUrl);
 
       Papa.parse(targetUrl, {
         download: true,
