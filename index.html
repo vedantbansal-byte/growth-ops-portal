@@ -149,7 +149,6 @@
   </div>
 
   <script>
-    const DEFAULT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTUaNVUb3f0f9Q5aE1T-3f-vB4Cg5L5i0H-S3y2K-3k_L_M/pub?output=csv";
     let globalData = [];
 
     const baseMetabaseQueries = [
@@ -189,24 +188,25 @@
 
     function fetchLiveData(url) {
       document.getElementById('status-text').innerText = "⏳ Fetching live data...";
-      let proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
 
-      Papa.parse(proxyUrl, {
+      // Directly fetch from published CSV url
+      Papa.parse(url, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
-          // Detect valid seller rows by dropping top summary/total rows
-          globalData = results.data.filter(row => {
-            let keys = Object.keys(row);
-            return keys.some(k => k && k.toLowerCase().includes('seller')) || Object.values(row).some(v => typeof v === 'string' && v.length > 3);
-          });
+          if (!results.data || results.data.length === 0) {
+            document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Empty CSV.";
+            return;
+          }
+          globalData = results.data;
           document.getElementById('status-text').innerText = "● Live Data Connected";
           processMetrics();
           renderSellersView();
         },
-        error: function() {
-          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Check URL.";
+        error: function(err) {
+          console.error(err);
+          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Check Sheet Link.";
         }
       });
     }
