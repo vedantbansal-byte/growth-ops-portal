@@ -26,7 +26,8 @@
     <!-- Sync URL Input -->
     <div class="flex items-center space-x-2 w-1/2">
       <input type="text" id="sheet-url-input" placeholder="Paste Direct Google Sheet CSV URL..." class="w-full bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
-      <button onclick="saveAndSyncUrl()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg whitespace-nowrap">🔄 Sync Live Data</button>
+      <button onclick="saveAndSyncUrl()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg whitespace-nowrap">🔄 Sync</button>
+      <button onclick="resetToDefault()" class="px-2 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 rounded-lg whitespace-nowrap" title="Reset URL">🧹 Reset</button>
     </div>
 
     <!-- Navigation Buttons -->
@@ -172,6 +173,12 @@
       fetchLiveData(savedUrl);
     };
 
+    function resetToDefault() {
+      localStorage.removeItem('growth_ops_sheet_url');
+      document.getElementById('sheet-url-input').value = DEFAULT_CSV_URL;
+      fetchLiveData(DEFAULT_CSV_URL);
+    }
+
     function switchTab(tab) {
       ['home', 'sellers', 'metabase'].forEach(t => document.getElementById(`view-${t}`).classList.add('hidden'));
       document.getElementById(`view-${tab}`).classList.remove('hidden');
@@ -184,18 +191,24 @@
       fetchLiveData(url);
     }
 
-    function fetchLiveData(url) {
+    function fetchLiveData(rawUrl) {
       document.getElementById('status-text').className = "text-xs text-amber-400";
       document.getElementById('status-text').innerText = "⏳ Fetching live data...";
 
-      Papa.parse(url, {
+      // Bypass CORS restrictions using corsproxy.io wrapper
+      let targetUrl = rawUrl;
+      if (!rawUrl.includes('corsproxy.io')) {
+        targetUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl);
+      }
+
+      Papa.parse(targetUrl, {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           if (!results.data || results.data.length === 0) {
             document.getElementById('status-text').className = "text-xs text-rose-500";
-            document.getElementById('status-text').innerText = "❌ Empty or Invalid CSV Data";
+            document.getElementById('status-text').innerText = "❌ Empty Data Received";
             return;
           }
           globalData = results.data;
@@ -207,7 +220,7 @@
         error: function(err) {
           console.error(err);
           document.getElementById('status-text').className = "text-xs text-rose-500";
-          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Check Link.";
+          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Click 'Reset'.";
         }
       });
     }
