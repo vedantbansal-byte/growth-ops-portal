@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Growth Ops Command Center</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Metabase visual analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glass-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 selection:bg-brand-500 selection:text-white">
+
+  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800 bg-slate-900/80 px-4 py-3 sm:px-6">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/20 font-bold text-xl">
+          🚀
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Growth Ops Command Center</h1>
+          <p class="text-xs text-slate-400 flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="data-status-text">Connected to Local Live Buffer</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-sm">
+        <button id="nav-home" onclick="switchPage('home')" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all duration-200 text-white bg-brand-600 shadow-sm">
+          <i class="fa-solid fa-house text-xs"></i> <span>Home</span>
+        </button>
+        <button id="nav-seller" onclick="switchPage('seller')" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-list-check text-xs"></i> <span>Sellers</span>
+        </button>
+        <button id="nav-metabase" onclick="switchPage('metabase')" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-chart-line text-xs"></i> <span>Metabase</span>
+        </button>
+      </nav>
+
+      <!-- Action Tools -->
+      <div class="flex items-center gap-2">
+        <button onclick="toggleImportModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-colors">
+          <i class="fa-solid fa-file-import text-brand-500"></i> Import Data
+        </button>
+        <button onclick="resetDataToDefault()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs border border-slate-700 transition-colors" title="Reload Default Sample Data">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- PAGE 1: HOME DASHBOARD -->
+    <section id="page-home" class="space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>📊 Home Dashboard & KPI Overview</span>
+          </h2>
+          <p class="text-xs text-slate-400">Real-time budget aggregations & SOP submission metrics</p>
+        </div>
+        <div class="text-xs text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center gap-2 self-start sm:self-auto">
+          <i class="fa-solid fa-database text-brand-500"></i>
+          <span>Sellers Loaded: <strong id="total-seller-count" class="text-white">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Top Metric Cards Grid (Row 1) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-brand-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Start of Week Budget</p>
+          <p id="kpi-start-budget" class="text-2xl font-bold text-white mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-slate-500 mt-2"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Baseline Target</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-blue-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Current Budget</p>
+          <p id="kpi-current-budget" class="text-2xl font-bold text-blue-400 mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-blue-400/80 mt-2"><i class="fa-solid fa-bolt mr-1"></i> Live Allocation</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-purple-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Week Target</p>
+          <p id="kpi-week-target" class="text-2xl font-bold text-purple-300 mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-purple-400/80 mt-2"><i class="fa-solid fa-bullseye mr-1"></i> Goal Threshold</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-emerald-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">TS Completion Rate</p>
+          <p id="kpi-ts-rate" class="text-2xl font-bold text-emerald-400 mt-1">0%</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="kpi-ts-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metric Cards Grid (Row 2) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-rose-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Unplanned Scaledown</p>
+          <p id="kpi-unplanned" class="text-2xl font-bold text-rose-400 mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-rose-400/80 mt-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Scale Variance</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-amber-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Planned Scaleup Pending</p>
+          <p id="kpi-scaleup-pending" class="text-2xl font-bold text-amber-300 mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-amber-400/80 mt-2"><i class="fa-solid fa-arrow-up-right-dots mr-1"></i> In Pipeline</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-orange-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Planned Scaledown Pending</p>
+          <p id="kpi-scaledown-pending" class="text-2xl font-bold text-orange-300 mt-1">₹0</p>
+          <span class="inline-flex items-center text-[10px] text-orange-400/80 mt-2"><i class="fa-solid fa-arrow-down-short-wide mr-1"></i> Scheduled Reduction</span>
+        </div>
+        <div class="glass-panel rounded-2xl p-4 border-l-4 border-l-teal-500 hover:border-slate-700 transition-all">
+          <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Action Completion Rate</p>
+          <p id="kpi-action-rate" class="text-2xl font-bold text-teal-300 mt-1">0%</p>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div id="kpi-action-bar" class="bg-teal-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <button onclick="toggleUnplannedExpander()" class="w-full px-6 py-4 flex items-center justify-between bg-slate-900/60 hover:bg-slate-800/60 transition-colors text-left">
+          <div class="flex items-center gap-3">
+            <div class="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <i class="fa-solid fa-magnifying-glass-dollar"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-white">Interactive Metric Drill-Down</h3>
+              <p class="text-xs text-slate-400">Inspect accounts with active Unplanned Scaledown amounts</p>
+            </div>
+          </div>
+          <i id="unplanned-expander-icon" class="fa-solid fa-chevron-down text-slate-400 transition-transform duration-300"></i>
+        </button>
+
+        <div id="unplanned-expander-content" class="hidden p-6 border-t border-slate-800/80 bg-slate-950/40">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th class="p-3 rounded-l-lg">Seller ID</th>
+                  <th class="p-3">Seller Name</th>
+                  <th class="p-3">Category</th>
+                  <th class="p-3 text-right rounded-r-lg">Unplanned Scaledown (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="unplanned-table-body" class="divide-y divide-slate-800">
+                <!-- Dynamic Rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-seller" class="space-y-6 hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>📋 Seller Master View & WhatsApp SOPs</span>
+          </h2>
+          <p class="text-xs text-slate-400">Search sellers, inspect account details, and copy Part A & Part B SOPs</p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="relative w-full sm:w-72">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input type="text" id="seller-search-input" onkeyup="renderSellerTable()" placeholder="Search Seller Name or ID..." class="w-full bg-slate-900 border border-slate-800 text-white rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all">
+        </div>
+      </div>
+
+      <!-- Master Seller Table -->
+      <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <div class="overflow-x-auto max-h-80">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 z-10 shadow-sm">
+              <tr>
+                <th class="p-3">Seller Name</th>
+                <th class="p-3">Category</th>
+                <th class="p-3">Growth Lead</th>
+                <th class="p-3">TS Status</th>
+                <th class="p-3">Action</th>
+                <th class="p-3 text-right">Current Budget</th>
+                <th class="p-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="seller-master-table-body" class="divide-y divide-slate-800">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- In-Depth Inspector Section -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-address-card text-brand-500"></i>
+              <span>In-Depth Seller Inspector</span>
+            </h3>
+            <p class="text-xs text-slate-400">Select a seller from the dropdown or table to generate SOP text messages</p>
+          </div>
+          <select id="seller-select-dropdown" onchange="inspectSeller(this.value)" class="bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-brand-500">
+            <!-- Dropdown Options -->
+          </select>
+        </div>
+
+        <!-- Selected Seller Overview Grid -->
+        <div id="inspector-card-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- WhatsApp SOP Tabs -->
+        <div class="pt-2">
+          <div class="flex items-center border-b border-slate-800 gap-2">
+            <button id="tab-sop-a" onclick="switchSopTab('A')" class="px-4 py-2 border-b-2 border-brand-500 text-brand-400 font-semibold text-xs transition-colors">
+              💬 Part A SOP Message
+            </button>
+            <button id="tab-sop-b" onclick="switchSopTab('B')" class="px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold text-xs transition-colors">
+              💬 Part B SOP Message
+            </button>
+          </div>
+
+          <!-- SOP Content Box A -->
+          <div id="sop-content-a" class="pt-4 space-y-2">
+            <textarea id="sop-text-a" readonly rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none"></textarea>
+            <button onclick="copyToClipboard('sop-text-a', 'copy-btn-a')" id="copy-btn-a" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-brand-500/20">
+              <i class="fa-regular fa-copy"></i> Copy Part A Message
+            </button>
+          </div>
+
+          <!-- SOP Content Box B -->
+          <div id="sop-content-b" class="pt-4 space-y-2 hidden">
+            <textarea id="sop-text-b" readonly rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none"></textarea>
+            <button onclick="copyToClipboard('sop-text-b', 'copy-btn-b')" id="copy-btn-b" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-brand-500/20">
+              <i class="fa-regular fa-copy"></i> Copy Part B Message
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-metabase" class="space-y-6 hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <span>📈 Metabase Analytics Dashboard</span>
+          </h2>
+          <p class="text-xs text-slate-400">Budget lifecycle stage progression and direct query catalog</p>
+        </div>
+      </div>
+
+      <!-- Search & Interactive Budget Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-brand-500"></i> Analytics Selector
+          </h3>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5">Select Seller Profile:</label>
+            <select id="metabase-seller-select" onchange="renderMetabaseChart(this.value)" class="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl p-2.5 focus:outline-none focus:border-brand-500">
+              <!-- Options via JS -->
+            </select>
+          </div>
+
+          <div id="metabase-profile-summary" class="space-y-3 pt-3 border-t border-slate-800">
+            <!-- Dynamically injected -->
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-slate-800 flex flex-col justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-chart-bar text-brand-500"></i> Budget Stage Progression
+          </h3>
+          <div class="h-64 w-full relative">
+            <canvas id="metabaseBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Metabase Link Catalog -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-link text-indigo-400"></i> Metabase Query Links Catalog
+        </h3>
+        <p class="text-xs text-slate-400">Direct query shortcuts mapped to operational databases</p>
+
+        <div id="metabase-links-catalog" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Dynamically Generated Quick Links -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="import-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-lg rounded-2xl p-6 border border-slate-700 shadow-2xl relative mx-4 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-file-csv text-brand-500"></i> Import Data Source
+        </h3>
+        <button onclick="toggleImportModal()" class="text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Option 1: Paste CSV or Google Sheets CSV Export Link</label>
+          <input type="text" id="csv-url-input" placeholder="https://docs.google.com/spreadsheets/.../export?format=csv" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+          <p class="text-[10px] text-slate-500 mt-1">Works with any published CSV link without domain authorization errors.</p>
+        </div>
+
+        <button onclick="fetchCsvFromUrl()" class="w-full py-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs rounded-xl transition-colors">
+          Fetch & Load URL Data
+        </button>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-800"></div>
+          <span class="flex-shrink mx-3 text-[10px] text-slate-500 uppercase">Or</span>
+          <div class="flex-grow border-t border-slate-800"></div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Option 2: Upload CSV File directly</label>
+          <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-brand-400 hover:file:bg-slate-700">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="toggleImportModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded-xl">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial Sample Dataset
+    const DEFAULT_DATA = [
+      {
+        "Seller ID": "1001",
+        "Seller Name": "Beauty & Personal Care",
+        "Category": "Personal Care",
+        "Growth Lead": "Rahul Sharma",
+        "startofweekbudget": 6250,
+        "Current_budget": 4500,
+        "week_target": 5750,
+        "unplanned scaledown": 1500,
+        "Planned Scaleup Pending": 500,
+        "Planned Scaledown pending": 250,
+        "TS": "Submitted",
+        "Action": "Completed",
+        "Part A Message": "Hi Beauty & Personal Care team, your Part A SOP budget review is complete. Current Budget: ₹4,500. Please align with your Growth Lead.",
+        "Part B Message": "Part B SOP Update: Target week allocation set to ₹5,750. Please confirm TS submission status."
+      },
+      {
+        "Seller ID": "1002",
+        "Seller Name": "Aamprali Ethnic Wear",
+        "Category": "Women Sarees & Lehenga",
+        "Growth Lead": "Ananya Roy",
+        "startofweekbudget": 2000,
+        "Current_budget": 1750,
+        "week_target": 1500,
+        "unplanned scaledown": 0,
+        "Planned Scaleup Pending": 0,
+        "Planned Scaledown pending": 0,
+        "TS": "Submitted",
+        "Action": "Completed",
+        "Part A Message": "Hi Aamprali Ethnic Wear, Part A budget updated to ₹1,750.",
+        "Part B Message": "Part B SOP: Target is ₹1,500. Action completed successfully."
+      },
+      {
+        "Seller ID": "1003",
+        "Seller Name": "Arolex Shopdeck",
+        "Category": "Health & Wellness",
+        "Growth Lead": "Vikram Seth",
+        "startofweekbudget": 3000,
+        "Current_budget": 3000,
+        "week_target": 3500,
+        "unplanned scaledown": 500,
+        "Planned Scaleup Pending": 1000,
+        "Planned Scaledown pending": 0,
+        "TS": "Pending",
+        "Action": "In Progress",
+        "Part A Message": "Arolex Shopdeck: Unplanned scale down detected. Please complete TS submission.",
+        "Part B Message": "Part B SOP: Scaleup pending approval for ₹1,000."
+      },
+      {
+        "Seller ID": "1004",
+        "Seller Name": "Likecollection SD ACC",
+        "Category": "Home Utility",
+        "Growth Lead": "Pooja Verma",
+        "startofweekbudget": 1500,
+        "Current_budget": 1500,
+        "week_target": 1500,
+        "unplanned scaledown": 0,
+        "Planned Scaleup Pending": 250,
+        "Planned Scaledown pending": 0,
+        "TS": "Submitted",
+        "Action": "Completed",
+        "Part A Message": "Likecollection: All SOP tasks verified.",
+        "Part B Message": "Part B SOP: Budget target on track at ₹1,500."
+      },
+      {
+        "Seller ID": "1005",
+        "Seller Name": "Infiny Fragrance Store",
+        "Category": "Beauty & Perfume",
+        "Growth Lead": "Rahul Sharma",
+        "startofweekbudget": 4000,
+        "Current_budget": 3200,
+        "week_target": 4000,
+        "unplanned scaledown": 800,
+        "Planned Scaleup Pending": 0,
+        "Planned Scaledown pending": 300,
+        "TS": "Submitted",
+        "Action": "In Progress",
+        "Part A Message": "Infiny Fragrance: Budget scaled down due to inventory limits.",
+        "Part B Message": "Part B SOP: Target remains ₹4,000."
+      }
+    ];
+
+    const METABASE_QUERIES = [
+      { name: "Facebook PnL Overview", url: "https://metabase.kaip.in/question/7240" },
+      { name: "Product PnL Overall Meta", url: "https://metabase.kaip.in/question/5087" },
+      { name: "Campaign PnL Breakdown", url: "https://metabase.kaip.in/question/5093" },
+      { name: "Tier Wise Distribution", url: "https://metabase.kaip.in/question/5097" },
+      { name: "City Wise Conversion Rate", url: "https://metabase.kaip.in/question/5099" },
+      { name: "Platform Distribution", url: "https://metabase.kaip.in/question/5105" }
+    ];
+
+    let currentDataset = [...DEFAULT_DATA];
+    let selectedSellerId = null;
+    let metabaseChartInstance = null;
+
+    // Initialize application on DOM load
+    window.onload = function() {
+      renderDashboard();
+      renderMetabaseCatalog();
+      setupFileInputListener();
+    };
+
+    function switchPage(pageKey) {
+      document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-brand-600', 'text-white', 'shadow-sm');
+        btn.classList.add('text-slate-400');
+      });
+
+      const activeSec = document.getElementById(`page-${pageKey}`);
+      const activeBtn = document.getElementById(`nav-${pageKey}`);
+
+      if (activeSec && activeBtn) {
+        activeSec.classList.remove('hidden');
+        activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow-sm');
+        activeBtn.classList.remove('text-slate-400');
+      }
+
+      if (pageKey === 'metabase') {
+        const sel = document.getElementById('metabase-seller-select');
+        if (sel && sel.value) renderMetabaseChart(sel.value);
+      }
+    }
+
+    function renderDashboard() {
+      // Metric calculations
+      let startBudget = 0, currentBudget = 0, weekTarget = 0;
+      let unplanned = 0, scaleupPending = 0, scaledownPending = 0;
+      let tsSubmittedCount = 0, actionCompletedCount = 0;
+
+      currentDataset.forEach(row => {
+        startBudget += Number(row["startofweekbudget"] || 0);
+        currentBudget += Number(row["Current_budget"] || 0);
+        weekTarget += Number(row["week_target"] || 0);
+        unplanned += Number(row["unplanned scaledown"] || 0);
+        scaleupPending += Number(row["Planned Scaleup Pending"] || 0);
+        scaledownPending += Number(row["Planned Scaledown pending"] || 0);
+
+        if (String(row["TS"]).toLowerCase() === 'submitted') tsSubmittedCount++;
+        if (String(row["Action"]).toLowerCase() === 'completed') actionCompletedCount++;
+      });
+
+      const totalSellers = currentDataset.length;
+      const tsRate = totalSellers > 0 ? (tsSubmittedCount / totalSellers * 100) : 0;
+      const actionRate = totalSellers > 0 ? (actionCompletedCount / totalSellers * 100) : 0;
+
+      // Update KPI Cards
+      document.getElementById('total-seller-count').innerText = totalSellers;
+      document.getElementById('kpi-start-budget').innerText = formatCurrency(startBudget);
+      document.getElementById('kpi-current-budget').innerText = formatCurrency(currentBudget);
+      document.getElementById('kpi-week-target').innerText = formatCurrency(weekTarget);
+
+      document.getElementById('kpi-ts-rate').innerText = `${tsRate.toFixed(1)}%`;
+      document.getElementById('kpi-ts-bar').style.width = `${tsRate}%`;
+
+      document.getElementById('kpi-unplanned').innerText = formatCurrency(unplanned);
+      document.getElementById('kpi-scaleup-pending').innerText = formatCurrency(scaleupPending);
+      document.getElementById('kpi-scaledown-pending').innerText = formatCurrency(scaledownPending);
+
+      document.getElementById('kpi-action-rate').innerText = `${actionRate.toFixed(1)}%`;
+      document.getElementById('kpi-action-bar').style.width = `${actionRate}%`;
+
+      // Render Unplanned Scaledown Expandable Table
+      const unplannedTbody = document.getElementById('unplanned-table-body');
+      unplannedTbody.innerHTML = '';
+      const unplannedRows = currentDataset.filter(r => Number(r["unplanned scaledown"] || 0) > 0);
+
+      if (unplannedRows.length === 0) {
+        unplannedTbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">No sellers with active unplanned scaledown found.</td></tr>`;
+      } else {
+        unplannedRows.forEach(r => {
+          unplannedTbody.innerHTML += `
+            <tr class="hover:bg-slate-900/50">
+              <td class="p-3 font-mono text-slate-400">${r["Seller ID"] || 'N/A'}</td>
+              <td class="p-3 font-semibold text-white">${r["Seller Name"] || 'Unknown'}</td>
+              <td class="p-3 text-slate-400">${r["Category"] || 'N/A'}</td>
+              <td class="p-3 text-right font-bold text-rose-400">${formatCurrency(r["unplanned scaledown"])}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // Render Sellers Master View & Dropdowns
+      renderSellerTable();
+      populateSellerDropdowns();
+    }
+
+    function renderSellerTable() {
+      const search = (document.getElementById('seller-search-input').value || '').toLowerCase();
+      const tbody = document.getElementById('seller-master-table-body');
+      tbody.innerHTML = '';
+
+      const filtered = currentDataset.filter(r => {
+        const name = String(r["Seller Name"] || '').toLowerCase();
+        const id = String(r["Seller ID"] || '').toLowerCase();
+        return name.includes(search) || id.includes(search);
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No sellers match your search query.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(r => {
+        const tsSubmitted = String(r["TS"]).toLowerCase() === 'submitted';
+        const actionDone = String(r["Action"]).toLowerCase() === 'completed';
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="p-3 font-semibold text-white">${r["Seller Name"]}</td>
+            <td class="p-3 text-slate-400">${r["Category"] || '-'}</td>
+            <td class="p-3 text-slate-300">${r["Growth Lead"] || '-'}</td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${tsSubmitted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                ${r["TS"]}
+              </span>
+            </td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${actionDone ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-slate-700 text-slate-300'}">
+                ${r["Action"]}
+              </span>
+            </td>
+            <td class="p-3 text-right font-bold text-slate-200">${formatCurrency(r["Current_budget"])}</td>
+            <td class="p-3 text-center">
+              <button onclick="inspectSeller('${r["Seller ID"]}')" class="px-2.5 py-1 bg-slate-800 hover:bg-brand-600 text-slate-300 hover:text-white rounded-lg text-[10px] font-medium transition-colors">
+                Inspect
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // Populate Dynamic Dropdowns
+    function populateSellerDropdowns() {
+      const inspectDropdown = document.getElementById('seller-select-dropdown');
+      const mbDropdown = document.getElementById('metabase-seller-select');
+
+      inspectDropdown.innerHTML = '';
+      mbDropdown.innerHTML = '';
+
+      currentDataset.forEach((s, idx) => {
+        const optText = `${s["Seller Name"]} (ID: ${s["Seller ID"]})`;
+        inspectDropdown.innerHTML += `<option value="${s["Seller ID"]}">${optText}</option>`;
+        mbDropdown.innerHTML += `<option value="${s["Seller ID"]}">${optText}</option>`;
+      });
+
+      if (currentDataset.length > 0) {
+        selectedSellerId = currentDataset[0]["Seller ID"];
+        inspectSeller(selectedSellerId);
+      }
+    }
+
+    function inspectSeller(sellerId) {
+      selectedSellerId = sellerId;
+      document.getElementById('seller-select-dropdown').value = sellerId;
+
+      const seller = currentDataset.find(s => String(s["Seller ID"]) === String(sellerId)) || currentDataset[0];
+      if (!seller) return;
+
+      const cardContainer = document.getElementById('inspector-card-content');
+      cardContainer.innerHTML = `
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-slate-400 uppercase">Seller ID & Lead</p>
+          <p class="text-sm font-bold text-white mt-0.5">${seller["Seller ID"]} • ${seller["Growth Lead"] || 'N/A'}</p>
+        </div>
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-slate-400 uppercase">Current Budget</p>
+          <p class="text-sm font-bold text-emerald-400 mt-0.5">${formatCurrency(seller["Current_budget"])}</p>
+        </div>
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-slate-400 uppercase">Week Target</p>
+          <p class="text-sm font-bold text-purple-300 mt-0.5">${formatCurrency(seller["week_target"])}</p>
+        </div>
+        <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+          <p class="text-[10px] text-slate-400 uppercase">Status Overview</p>
+          <p class="text-xs font-semibold text-slate-200 mt-0.5">TS: ${seller["TS"]} | Action: ${seller["Action"]}</p>
+        </div>
+      `;
+
+      document.getElementById('sop-text-a').value = seller["Part A Message"] || `Part A SOP message for ${seller["Seller Name"]} ready. Budget: ₹${seller["Current_budget"]}.`;
+      document.getElementById('sop-text-b').value = seller["Part B Message"] || `Part B SOP message for ${seller["Seller Name"]} ready. Target: ₹${seller["week_target"]}.`;
+    }
+
+    function renderMetabaseChart(sellerId) {
+      const seller = currentDataset.find(s => String(s["Seller ID"]) === String(sellerId)) || currentDataset[0];
+      if (!seller) return;
+
+      const profileBox = document.getElementById('metabase-profile-summary');
+      profileBox.innerHTML = `
+        <div class="flex justify-between text-xs"><span class="text-slate-400">Seller Name:</span> <span class="font-bold text-white">${seller["Seller Name"]}</span></div>
+        <div class="flex justify-between text-xs"><span class="text-slate-400">Category:</span> <span class="text-slate-200">${seller["Category"] || '-'}</span></div>
+        <div class="flex justify-between text-xs"><span class="text-slate-400">Start Budget:</span> <span class="text-slate-200">${formatCurrency(seller["startofweekbudget"])}</span></div>
+        <div class="flex justify-between text-xs"><span class="text-slate-400">Current Budget:</span> <span class="text-emerald-400 font-bold">${formatCurrency(seller["Current_budget"])}</span></div>
+        <div class="flex justify-between text-xs"><span class="text-slate-400">Week Target:</span> <span class="text-purple-300 font-bold">${formatCurrency(seller["week_target"])}</span></div>
+      `;
+
+      const ctx = document.getElementById('metabaseBarChart').getContext('2d');
+      if (metabaseChartInstance) metabaseChartInstance.destroy();
+
+      metabaseChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Start of Week', 'Current Budget', 'Week Target'],
+          datasets: [{
+            label: 'Budget Amount (₹)',
+            data: [
+              Number(seller["startofweekbudget"] || 0),
+              Number(seller["Current_budget"] || 0),
+              Number(seller["week_target"] || 0)
+            ],
+            backgroundColor: ['#6366f1', '#3b82f6', '#a855f7'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderMetabaseCatalog() {
+      const container = document.getElementById('metabase-links-catalog');
+      container.innerHTML = '';
+      METABASE_QUERIES.forEach(q => {
+        container.innerHTML += `
+          <a href="${q.url}" target="_blank" class="p-3 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-brand-500/50 rounded-xl flex items-center justify-between group transition-all">
+            <div class="flex items-center gap-2.5">
+              <i class="fa-solid fa-database text-brand-500 text-xs"></i>
+              <span class="text-xs font-medium text-slate-300 group-hover:text-white">${q.name}</span>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-500 group-hover:text-brand-400"></i>
+          </a>
+        `;
+      });
+    }
+
+    function formatCurrency(num) {
+      return '₹' + Number(num || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    }
+
+    function toggleUnplannedExpander() {
+      const content = document.getElementById('unplanned-expander-content');
+      const icon = document.getElementById('unplanned-expander-icon');
+      content.classList.toggle('hidden');
+      icon.classList.toggle('rotate-180');
+    }
+
+    function switchSopTab(tabKey) {
+      const btnA = document.getElementById('tab-sop-a');
+      const btnB = document.getElementById('tab-sop-b');
+      const boxA = document.getElementById('sop-content-a');
+      const boxB = document.getElementById('sop-content-b');
+
+      if (tabKey === 'A') {
+        btnA.classList.add('border-brand-500', 'text-brand-400');
+        btnA.classList.remove('border-transparent', 'text-slate-400');
+        btnB.classList.remove('border-brand-500', 'text-brand-400');
+        btnB.classList.add('border-transparent', 'text-slate-400');
+        boxA.classList.remove('hidden');
+        boxB.classList.add('hidden');
+      } else {
+        btnB.classList.add('border-brand-500', 'text-brand-400');
+        btnB.classList.remove('border-transparent', 'text-slate-400');
+        btnA.classList.remove('border-brand-500', 'text-brand-400');
+        btnA.classList.add('border-transparent', 'text-slate-400');
+        boxB.classList.remove('hidden');
+        boxA.classList.add('hidden');
+      }
+    }
+
+    function copyToClipboard(textareaId, buttonId) {
+      const textarea = document.getElementById(textareaId);
+      textarea.select();
+      document.execCommand('copy');
+
+      const btn = document.getElementById(buttonId);
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<i class="fa-solid fa-check text-emerald-300"></i> Copied to Clipboard!`;
+      btn.classList.add('bg-emerald-600');
+
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.remove('bg-emerald-600');
+      }, 2000);
+    }
+
+    function toggleImportModal() {
+      document.getElementById('import-modal').classList.toggle('hidden');
+    }
+
+    // CSV Parse Helper
+    function parseCsvText(csvText) {
+      const lines = csvText.trim().split('\n');
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+
+      return lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        let obj = {};
+        headers.forEach((h, i) => obj[h] = values[i] || '');
+        return obj;
+      });
+    }
+
+    function fetchCsvFromUrl() {
+      const url = document.getElementById('csv-url-input').value.trim();
+      if (!url) return alert('Please enter a valid CSV URL');
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error('HTTP status ' + res.status);
+          return res.text();
+        })
+        .then(csv => {
+          const parsed = parseCsvText(csv);
+          if (parsed.length > 0) {
+            currentDataset = parsed;
+            renderDashboard();
+            toggleImportModal();
+            document.getElementById('data-status-text').innerText = 'Connected to Live Custom CSV';
+          } else {
+            alert('Parsed CSV contains no rows.');
+          }
+        })
+        .catch(err => alert('Failed to fetch CSV: ' + err.message));
+    }
+
+    function setupFileInputListener() {
+      document.getElementById('csv-file-input').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const parsed = parseCsvText(evt.target.result);
+          if (parsed.length > 0) {
+            currentDataset = parsed;
+            renderDashboard();
+            toggleImportModal();
+            document.getElementById('data-status-text').innerText = `Loaded File: ${file.name}`;
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    function resetDataToDefault() {
+      currentDataset = [...DEFAULT_DATA];
+      renderDashboard();
+      document.getElementById('data-status-text').innerText = 'Connected to Local Live Buffer';
+    }
+  </script>
+</body>
+</html>
