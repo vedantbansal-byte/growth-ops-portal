@@ -13,24 +13,26 @@
   </style>
 </head>
 <body class="p-6">
-  <!-- Top Navigation Header -->
+
+  <!-- Header -->
   <header class="flex justify-between items-center mb-6 glass-card p-4">
     <div class="flex items-center space-x-3">
       <div class="p-3 bg-indigo-600 rounded-lg"><i class="fa-solid fa-rocket text-xl text-white"></i></div>
       <div>
         <h1 class="text-xl font-bold">Growth Ops Command Center</h1>
-        <p id="status-text" class="text-xs text-amber-400">● Initializing Sync...</p>
+        <p id="status-text" class="text-xs text-amber-400">● Waiting for data...</p>
       </div>
     </div>
     
-    <!-- Sync URL Input -->
-    <div class="flex items-center space-x-2 w-1/2">
-      <input type="text" id="sheet-url-input" placeholder="Paste Direct Google Sheet CSV URL..." class="w-full bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-indigo-500">
-      <button onclick="saveAndSyncUrl()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg whitespace-nowrap">🔄 Sync</button>
-      <button onclick="resetToDefault()" class="px-2 py-2 bg-gray-800 hover:bg-gray-700 text-xs text-gray-400 rounded-lg whitespace-nowrap" title="Reset URL">🧹 Reset</button>
+    <div class="flex items-center space-x-2">
+      <button onclick="openPasteModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold rounded-lg flex items-center gap-2">
+        <i class="fa-solid fa-paste"></i> Paste Sheet Data
+      </button>
+      <button onclick="clearData()" class="px-3 py-2 bg-gray-800 hover:bg-rose-600 text-xs text-gray-400 hover:text-white rounded-lg transition" title="Clear Stored Data">
+        <i class="fa-solid fa-trash"></i>
+      </button>
     </div>
 
-    <!-- Navigation Buttons -->
     <div class="flex space-x-2">
       <button onclick="switchTab('home')" class="px-3 py-1.5 bg-indigo-600 text-xs font-semibold rounded-lg">🏠 Home</button>
       <button onclick="switchTab('sellers')" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-xs font-semibold rounded-lg">📋 Sellers</button>
@@ -91,7 +93,7 @@
             <tr><th class="p-2">Seller Name</th><th class="p-2">Category</th><th class="p-2">Unplanned Scaledown Amount</th></tr>
           </thead>
           <tbody id="unplanned-table-body">
-            <tr><td colspan="3" class="p-4 text-center text-gray-500">Syncing live data...</td></tr>
+            <tr><td colspan="3" class="p-4 text-center text-gray-500">No active data parsed.</td></tr>
           </tbody>
         </table>
       </div>
@@ -101,142 +103,97 @@
   <!-- SELLERS VIEW -->
   <div id="view-sellers" class="hidden">
     <div class="flex justify-between items-center mb-4">
-      <div>
-        <h2 class="text-lg font-bold">📋 Seller Directory</h2>
-        <p class="text-xs text-gray-400">Clean, structured view of all seller accounts and targets</p>
-      </div>
+      <h2 class="text-lg font-bold">📋 Seller Directory</h2>
       <input type="text" id="seller-search" onkeyup="renderSellersView()" placeholder="🔍 Search Seller Name or Category..." class="bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg text-xs w-72 focus:outline-none focus:border-indigo-500">
     </div>
-
     <div id="seller-cards-grid" class="grid grid-cols-3 gap-4"></div>
   </div>
 
   <!-- METABASE VIEW -->
   <div id="view-metabase" class="hidden">
     <div class="glass-card p-6 mb-6">
-      <h2 class="text-lg font-bold mb-2">📈 Metabase Multi-Report Engine</h2>
-      <p class="text-xs text-gray-400 mb-6">Fill in parameters once to auto-generate all 12 Metabase query reports simultaneously.</p>
-      
+      <h2 class="text-lg font-bold mb-2">📈 Metabase Report Launchpad</h2>
       <div class="grid grid-cols-5 gap-4 mb-4">
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Seller ID / Hash</label>
-          <input type="text" id="mb-seller-id" placeholder="e.g. 658406a1b69e..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Current Start Date</label>
-          <input type="date" id="mb-curr-start" value="2025-07-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Current End Date</label>
-          <input type="date" id="mb-curr-end" value="2025-07-16" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Profitable Start Date</label>
-          <input type="date" id="mb-prof-start" value="2025-05-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Profitable End Date</label>
-          <input type="date" id="mb-prof-end" value="2025-05-31" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        </div>
+        <div><label class="block text-xs text-gray-400 mb-1">Seller ID / Hash</label><input type="text" id="mb-seller-id" placeholder="e.g. 658406..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Current Start</label><input type="date" id="mb-curr-start" value="2025-07-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Current End</label><input type="date" id="mb-curr-end" value="2025-07-16" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Profitable Start</label><input type="date" id="mb-prof-start" value="2025-05-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs"></div>
+        <div><label class="block text-xs text-gray-400 mb-1">Profitable End</label><input type="date" id="mb-prof-end" value="2025-05-31" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs"></div>
       </div>
-      
-      <button onclick="generateMetabaseReports()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold text-xs rounded-lg shadow-lg">🚀 Fetch & Generate All Metabase Reports</button>
+      <button onclick="generateMetabaseReports()" class="w-full py-2 bg-indigo-600 font-bold text-xs rounded-lg">🚀 Generate Reports</button>
     </div>
+    <div id="metabase-reports-grid" class="grid grid-cols-2 gap-4"></div>
+  </div>
 
-    <div id="metabase-reports-grid" class="grid grid-cols-2 gap-4">
-      <div class="glass-card p-6 text-center text-gray-500 col-span-2">Enter parameters above and click 'Fetch Reports'</div>
+  <!-- PASTE MODAL -->
+  <div id="paste-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
+    <div class="glass-card max-w-2xl w-full p-6 relative">
+      <h3 class="text-base font-bold mb-2 text-emerald-400"><i class="fa-solid fa-paste"></i> Paste Data from Google Sheet</h3>
+      <p class="text-xs text-gray-400 mb-4">In Google Sheets, press <b>Ctrl+A</b> (or select your rows with headers), press <b>Ctrl+C</b>, and paste it directly into the box below:</p>
+      
+      <textarea id="raw-paste-input" rows="10" placeholder="Paste copied rows here (headers must be included)..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs font-mono focus:outline-none focus:border-emerald-500 text-gray-200"></textarea>
+      
+      <div class="flex justify-end space-x-3 mt-4">
+        <button onclick="closePasteModal()" class="px-4 py-2 bg-gray-800 text-xs text-gray-300 rounded-lg">Cancel</button>
+        <button onclick="processPastedData()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white rounded-lg">Import & Process</button>
+      </div>
     </div>
   </div>
 
   <script>
-    const DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/1YRp4959yr6wrgpFPQBf5PgmYQiBvv1TzwkOGM4wacdI/export?format=csv&gid=247608123";
     let globalData = [];
 
-    const baseMetabaseQueries = [
-      { name: "Facebook PnL", base: "https://metabase.kaip.in/question/7240-facebook-seller-pnl-all-sellers-with-seller-filter", type: "seller_only" },
-      { name: "Product PnL", base: "https://metabase.kaip.in/question/5087-product-pnl-overall-meta", type: "prof_range" },
-      { name: "Product PnL SKU level", base: "https://metabase.kaip.in/question/5089-product-level-pnl-sku-level-meta", type: "curr_range" },
-      { name: "Campaign PnL", base: "https://metabase.kaip.in/question/5093-campaign-pnl-meta", type: "curr_range" },
-      { name: "State PnL", base: "https://metabase.kaip.in/question/5058-state-pnl-meta", type: "curr_range" },
-      { name: "Tier Wise Distribution", base: "https://metabase.kaip.in/question/5097-tier-wise-distribution-and-conversion-meta", type: "curr_range" },
-      { name: "City Wise Distribution", base: "https://metabase.kaip.in/question/5099-city-wise-distribution-and-conversion-meta", type: "curr_range" },
-      { name: "Payment Mode", base: "https://metabase.kaip.in/question/5101-payment-mode-wise-distribution-and-conversion-meta", type: "curr_range" },
-      { name: "Platform Wise Distribution", base: "https://metabase.kaip.in/question/5105-platform-wise-distribution-and-conversion-meta", type: "curr_range" },
-      { name: "Product Mix", base: "https://metabase.kaip.in/question/5108-product-mix-change-meta", type: "dual_range" },
-      { name: "Age Breakdown", base: "https://metabase.kaip.in/question/5148-age-breakdown-meta", type: "curr_range" },
-      { name: "Gender Breakdown", base: "https://metabase.kaip.in/question/5150-gender-breakdown-meta", type: "curr_range" }
-    ];
-
-    // Helper to format any standard Google Sheet URL into a direct CSV export URL
-    function formatToCsvUrl(inputUrl) {
-      if (!inputUrl) return DEFAULT_CSV_URL;
-      if (inputUrl.includes('/export?format=csv')) return inputUrl;
-      
-      const sheetIdMatch = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      const gidMatch = inputUrl.match(/gid=([0-9]+)/);
-
-      if (sheetIdMatch) {
-        const sheetId = sheetIdMatch[1];
-        const gid = gidMatch ? gidMatch[1] : '0';
-        return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-      }
-      return inputUrl;
-    }
-
     window.onload = function() {
-      let savedUrl = localStorage.getItem('growth_ops_sheet_url') || DEFAULT_CSV_URL;
-      document.getElementById('sheet-url-input').value = savedUrl;
-      fetchLiveData(savedUrl);
+      let cached = localStorage.getItem('growth_ops_pasted_data');
+      if (cached) {
+        try {
+          globalData = JSON.parse(cached);
+          document.getElementById('status-text').className = "text-xs text-emerald-400";
+          document.getElementById('status-text').innerText = `● Loaded ${globalData.length} records from local cache`;
+          processMetrics();
+          renderSellersView();
+        } catch (e) {
+          openPasteModal();
+        }
+      } else {
+        openPasteModal();
+      }
     };
-
-    function resetToDefault() {
-      localStorage.removeItem('growth_ops_sheet_url');
-      document.getElementById('sheet-url-input').value = DEFAULT_CSV_URL;
-      fetchLiveData(DEFAULT_CSV_URL);
-    }
 
     function switchTab(tab) {
       ['home', 'sellers', 'metabase'].forEach(t => document.getElementById(`view-${t}`).classList.add('hidden'));
       document.getElementById(`view-${tab}`).classList.remove('hidden');
     }
 
-    function saveAndSyncUrl() {
-      let url = document.getElementById('sheet-url-input').value.trim();
-      let formattedUrl = formatToCsvUrl(url);
-      document.getElementById('sheet-url-input').value = formattedUrl;
-      localStorage.setItem('growth_ops_sheet_url', formattedUrl);
-      fetchLiveData(formattedUrl);
+    function openPasteModal() { document.getElementById('paste-modal').classList.remove('hidden'); }
+    function closePasteModal() { document.getElementById('paste-modal').classList.add('hidden'); }
+
+    function clearData() {
+      localStorage.removeItem('growth_ops_pasted_data');
+      globalData = [];
+      location.reload();
     }
 
-    function fetchLiveData(rawUrl) {
-      document.getElementById('status-text').className = "text-xs text-amber-400";
-      document.getElementById('status-text').innerText = "⏳ Fetching live data...";
+    function processPastedData() {
+      let rawText = document.getElementById('raw-paste-input').value.trim();
+      if (!rawText) return alert("Please paste data from your sheet first.");
 
-      let formattedUrl = formatToCsvUrl(rawUrl);
-      
-      // Wrap through CORS proxy
-      let targetUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(formattedUrl);
-
-      Papa.parse(targetUrl, {
-        download: true,
+      Papa.parse(rawText, {
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           if (!results.data || results.data.length === 0) {
-            document.getElementById('status-text').className = "text-xs text-rose-500";
-            document.getElementById('status-text').innerText = "❌ Empty Data Received";
-            return;
+            return alert("Unable to parse pasted data. Ensure header rows are included.");
           }
           globalData = results.data;
+          localStorage.setItem('growth_ops_pasted_data', JSON.stringify(globalData));
+          
           document.getElementById('status-text').className = "text-xs text-emerald-400";
-          document.getElementById('status-text').innerText = "● Live Data Connected";
+          document.getElementById('status-text').innerText = `● Loaded ${globalData.length} rows successfully`;
+          
+          closePasteModal();
           processMetrics();
           renderSellersView();
-        },
-        error: function(err) {
-          console.error(err);
-          document.getElementById('status-text').className = "text-xs text-rose-500";
-          document.getElementById('status-text').innerText = "❌ Auto-Sync Failed. Click 'Reset'.";
         }
       });
     }
@@ -248,11 +205,13 @@
       return isNaN(num) ? 0 : num;
     }
 
-    function getKey(row, targetNames) {
+    // Advanced fuzzy header lookup to handle spaces, line breaks, or lowercase differences
+    function getKey(row, targets) {
       let keys = Object.keys(row);
-      for (let target of targetNames) {
-        let matchedKey = keys.find(k => k.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === target.toLowerCase().replace(/[^a-z0-9]/g, ''));
-        if (matchedKey) return row[matchedKey];
+      for (let target of targets) {
+        let normalizedTarget = target.toLowerCase().replace(/[^a-z0-9]/g, '');
+        let matchedKey = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedTarget);
+        if (matchedKey && row[matchedKey] !== undefined) return row[matchedKey];
       }
       return null;
     }
@@ -265,12 +224,12 @@
       let unplannedSellers = [];
 
       globalData.forEach(row => {
-        let startVal = cleanNum(getKey(row, ['startofweekbudget', 'start of week budget']));
-        let currentVal = cleanNum(getKey(row, ['Current_budget', 'current budget']));
-        let targetVal = cleanNum(getKey(row, ['week_target', 'week target']));
-        let unplannedVal = cleanNum(getKey(row, ['unplanned scaledown']));
-        let scaleupVal = cleanNum(getKey(row, ['Planned Scaleup Pending']));
-        let scaledownVal = cleanNum(getKey(row, ['Planned Scaledown pending']));
+        let startVal = cleanNum(getKey(row, ['startofweekbudget', 'start of week budget', 'startofweek']));
+        let currentVal = cleanNum(getKey(row, ['Current_budget', 'current budget', 'currentbudget']));
+        let targetVal = cleanNum(getKey(row, ['week_target', 'week target', 'weektarget']));
+        let unplannedVal = cleanNum(getKey(row, ['unplanned scaledown', 'unplannedscaledown']));
+        let scaleupVal = cleanNum(getKey(row, ['Planned Scaleup Pending', 'planned scaleup pending', 'plannedscaleuppending']));
+        let scaledownVal = cleanNum(getKey(row, ['Planned Scaledown pending', 'planned scaledown pending', 'plannedscaledownpending']));
 
         sumStart += startVal;
         sumCurrent += currentVal;
@@ -282,10 +241,10 @@
         let tsStatus = String(getKey(row, ['TS']) || '').trim().toLowerCase();
         let actionStatus = String(getKey(row, ['Action']) || '').trim().toLowerCase();
 
-        if (tsStatus === 'submitted' || tsStatus === 'done' || tsStatus === 'completed') tsSubmitted++;
-        if (actionStatus === 'completed' || actionStatus === 'done' || actionStatus === 'submitted') actionCompleted++;
+        if (['submitted', 'done', 'completed'].includes(tsStatus)) tsSubmitted++;
+        if (['submitted', 'done', 'completed'].includes(actionStatus)) actionCompleted++;
 
-        let sellerName = getKey(row, ['Seller Name', 'seller']) || 'Unknown';
+        let sellerName = getKey(row, ['Seller Name', 'sellername', 'seller']) || 'Unknown';
         let category = getKey(row, ['Category']) || 'General';
 
         if (unplannedVal !== 0) {
@@ -325,10 +284,10 @@
       }
 
       grid.innerHTML = filtered.map(row => {
-        let name = getKey(row, ['Seller Name', 'seller']) || 'Unnamed Seller';
+        let name = getKey(row, ['Seller Name', 'sellername', 'seller']) || 'Unnamed Seller';
         let category = getKey(row, ['Category']) || 'General';
-        let currentBudget = cleanNum(getKey(row, ['Current_budget', 'current budget']));
-        let targetBudget = cleanNum(getKey(row, ['week_target', 'week target']));
+        let currentBudget = cleanNum(getKey(row, ['Current_budget', 'current budget', 'currentbudget']));
+        let targetBudget = cleanNum(getKey(row, ['week_target', 'week target', 'weektarget']));
         let tsStatus = getKey(row, ['TS']) || 'Pending';
         let actionStatus = getKey(row, ['Action']) || 'Pending';
 
@@ -368,21 +327,31 @@
 
       if (!sellerId) return alert("Please enter a Seller ID.");
 
+      const baseMetabaseQueries = [
+        { name: "Facebook PnL", base: "https://metabase.kaip.in/question/7240-facebook-seller-pnl-all-sellers-with-seller-filter", type: "seller_only" },
+        { name: "Product PnL", base: "https://metabase.kaip.in/question/5087-product-pnl-overall-meta", type: "prof_range" },
+        { name: "Product PnL SKU level", base: "https://metabase.kaip.in/question/5089-product-level-pnl-sku-level-meta", type: "curr_range" },
+        { name: "Campaign PnL", base: "https://metabase.kaip.in/question/5093-campaign-pnl-meta", type: "curr_range" },
+        { name: "State PnL", base: "https://metabase.kaip.in/question/5058-state-pnl-meta", type: "curr_range" },
+        { name: "Tier Wise Distribution", base: "https://metabase.kaip.in/question/5097-tier-wise-distribution-and-conversion-meta", type: "curr_range" },
+        { name: "City Wise Distribution", base: "https://metabase.kaip.in/question/5099-city-wise-distribution-and-conversion-meta", type: "curr_range" },
+        { name: "Payment Mode", base: "https://metabase.kaip.in/question/5101-payment-mode-wise-distribution-and-conversion-meta", type: "curr_range" },
+        { name: "Platform Wise Distribution", base: "https://metabase.kaip.in/question/5105-platform-wise-distribution-and-conversion-meta", type: "curr_range" },
+        { name: "Product Mix", base: "https://metabase.kaip.in/question/5108-product-mix-change-meta", type: "dual_range" },
+        { name: "Age Breakdown", base: "https://metabase.kaip.in/question/5148-age-breakdown-meta", type: "curr_range" },
+        { name: "Gender Breakdown", base: "https://metabase.kaip.in/question/5150-gender-breakdown-meta", type: "curr_range" }
+      ];
+
       let grid = document.getElementById('metabase-reports-grid');
       grid.innerHTML = baseMetabaseQueries.map(q => {
         let finalUrl = "";
-        if (q.type === "seller_only") {
-          finalUrl = `${q.base}?seller_id=${sellerId}`;
-        } else if (q.type === "prof_range") {
-          finalUrl = `${q.base}?seller_id=${sellerId}&start_date=${profStart}&end_date=${profEnd}`;
-        } else if (q.type === "dual_range") {
-          finalUrl = `${q.base}?seller_id=${sellerId}&date_range_1_start_date=${profStart}&date_range_1_end_date=${profEnd}&date_range_2_start_date=${currStart}&date_range_2_end_date=${currEnd}`;
-        } else {
-          finalUrl = `${q.base}?seller_id=${sellerId}&start_date=${currStart}&end_date=${currEnd}`;
-        }
+        if (q.type === "seller_only") finalUrl = `${q.base}?seller_id=${sellerId}`;
+        else if (q.type === "prof_range") finalUrl = `${q.base}?seller_id=${sellerId}&start_date=${profStart}&end_date=${profEnd}`;
+        else if (q.type === "dual_range") finalUrl = `${q.base}?seller_id=${sellerId}&date_range_1_start_date=${profStart}&date_range_1_end_date=${profEnd}&date_range_2_start_date=${currStart}&date_range_2_end_date=${currEnd}`;
+        else finalUrl = `${q.base}?seller_id=${sellerId}&start_date=${currStart}&end_date=${currEnd}`;
 
         return `
-          <div class="glass-card p-4 border border-gray-800 flex flex-col justify-between">
+          <div class="glass-card p-4 flex flex-col justify-between">
             <div>
               <h4 class="font-bold text-xs text-indigo-400 mb-1">${q.name}</h4>
               <p class="text-[10px] text-gray-500 break-all mb-3">${finalUrl}</p>
