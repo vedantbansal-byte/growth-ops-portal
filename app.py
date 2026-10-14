@@ -1,6 +1,6 @@
 import os
 import io
-import pandas as pd
+import csv
 import requests
 from flask import Flask, render_template_string, request, jsonify
 
@@ -8,7 +8,6 @@ app = Flask(__name__)
 
 MB_BASE_URL = "https://metabase.kaip.in"
 
-# 17 Metabase Links mapped with question/dashboard IDs and param formats
 METABASE_CONFIG = [
     {"name": "Facebook PnL", "type": "card", "id": 7240, "param_type": "fb_pnl"},
     {"name": "Product PnL", "type": "card", "id": 5087, "param_type": "standard"},
@@ -69,7 +68,6 @@ HTML_TEMPLATE = """
   </div>
 
   <div class="grid">
-    <!-- LEFT INPUT PANEL -->
     <div class="card">
       <h3 style="margin-bottom:12px;">🔐 Metabase Credentials & Inputs</h3>
       <form id="rcaForm">
@@ -105,7 +103,6 @@ HTML_TEMPLATE = """
       </form>
     </div>
 
-    <!-- RIGHT REPORT PANEL -->
     <div class="card" id="reportCard">
       <h3>📋 Executive Diagnostic Summary</h3>
       <p id="placeholder" style="color:#64748B; padding:30px 0; text-align:center;">Enter credentials and files to generate RCA.</p>
@@ -207,6 +204,24 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def parse_csv_file(file_storage):
+    content = file_storage.read().decode('utf-8', errors='ignore')
+    reader = csv.DictReader(io.StringIO(content))
+    rows = []
+    for r in reader:
+        clean_row = {k.strip().lower().replace(' ', '_').replace('-', '_'): v for k, v in r.items() if k}
+        rows.append(clean_row)
+    return rows
+
+def parse_val(val):
+    if not val:
+        return 0.0
+    cleaned = str(val).replace('$', '').replace('₹', '').replace(',', '').strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE)
@@ -216,9 +231,7 @@ def diagnose():
     try:
         username = request.form.get('username')
         password = request.form.get('password')
-        seller_id = request.form.get('seller_id').strip()
-        start_date = request.form.get('start_date')
-        end_date = request.form.get('end_date')
+        seller_id = request.form.get('seller_id', '').strip()
 
         session_resp = requests.post(f"{MB_BASE_URL}/api/session", json={"username": username, "password": password}, timeout=10)
         if session_resp.status_code != 200:
@@ -227,29 +240,30 @@ def diagnose():
         token = session_resp.json().get("id")
         headers = {"X-Metabase-Session": token}
 
-        mb_errors = 0
         for item in METABASE_CONFIG:
             try:
                 endpoint = f"{MB_BASE_URL}/api/{item['type']}/{item['id']}"
                 requests.get(endpoint, headers=headers, timeout=5)
             except Exception:
-                mb_errors += 1
+                pass
 
         last_csv = request.files.get('last_week_csv')
-        df_last = pd.read_csv(io.StringIO(last_csv.read().decode('utf-8')))
-        df_last.columns = [c.strip().lower().replace(' ', '_').replace('-', '_') for c in df_last.columns]
+        rows = parse_csv_file(last_csv)
 
-        spend_col = [c for c in df_last.columns if 'spend' in c or 'amount' in c]
-        clicks_col = [c for c in df_last.columns if 'clicks' in c]
-        impr_col = [c for c in df_last.columns if 'impressions' in c]
-        purch_col = [c for c in df_last.columns if 'purchase' in c or 'orders' in c]
-        rev_col = [c for c in df_last.columns if 'value' in c or 'revenue' in c]
+        spend, clicks, impr, purch, revenue = 0.0, 0.0, 0.0, 0.0, 0.0
 
-        spend = float(df_last[spend_col[0]].sum()) if spend_col else 0
-        clicks = float(df_last[clicks_col[0]].sum()) if clicks_col else 0
-        impr = float(df_last[impr_col[0]].sum()) if impr_col else 0
-        purch = float(df_last[purch_col[0]].sum()) if purch_col else 0
-        revenue = float(df_last[rev_col[0]].sum()) if rev_col else 0
+        for r in rows:
+            for k, v in r.items():
+                if 'spend' in k or 'amount' in k:
+                    spend += parse_val(v)
+                elif 'click' in k:
+                    clicks += parse_val(v)
+                elif 'impression' in k:
+                    impr += parse_val(v)
+                elif 'purchase' in k or 'order' in k:
+                    purch += parse_val(v)
+                elif 'value' in k or 'revenue' in k:
+                    revenue += parse_val(v)
 
         ctr = round((clicks / impr * 100), 2) if impr > 0 else 0
         cpm = round((spend / impr * 1000), 2) if impr > 0 else 0
