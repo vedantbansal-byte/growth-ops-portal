@@ -2,13 +2,13 @@ import os
 import io
 import csv
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
 MB_BASE_URL = "https://metabase.kaip.in"
 
-# Clean list of all Metabase Questions
 METABASE_CONFIG = [
     {"name": "Facebook PnL", "id": 7240},
     {"name": "Product PnL", "id": 5087},
@@ -62,7 +62,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 
   <div class="header">
     <h1>🚀 Company L3 Automated Metabase + Marketing Deep RCA Tool</h1>
-    <span style="color:#64748B;">Live Query Extraction & Diagnostic Engine</span>
+    <span style="color:#64748B;">Live Fast Parallel Extraction Engine</span>
   </div>
 
   <div class="grid">
@@ -144,7 +144,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     document.getElementById('rcaForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      document.getElementById('placeholder').innerText = "Querying Metabase API & Fetching Live Question Tables...";
+      document.getElementById('placeholder').innerText = "Querying Metabase API in parallel...";
       document.getElementById('reportContent').style.display = 'none';
 
       const formData = new FormData();
@@ -161,6 +161,11 @@ HTML_CONTENT = """<!DOCTYPE html>
 
       try {
         const response = await fetch('/api/diagnose', { method: 'POST', body: formData });
+        
+        if (!response.ok) {
+          throw new Error('HTTP status ' + response.status);
+        }
+
         const res = await response.json();
 
         if (!res.success) {
@@ -175,11 +180,11 @@ HTML_CONTENT = """<!DOCTYPE html>
         document.getElementById('rcaPrimaryDesc').innerText = res.description;
 
         document.getElementById('metricsGrid').innerHTML = `
-          <div class="m-card"><div>Spend</div><div class="val">₹${res.metrics.spend.toLocaleString()}</div></div>
+          <div class="m-card"><div>Spend</div><div class="val">&#8377;${res.metrics.spend.toLocaleString()}</div></div>
           <div class="m-card"><div>ROAS</div><div class="val">${res.metrics.roas}x</div></div>
-          <div class="m-card"><div>CPA</div><div class="val">₹${res.metrics.cpa}</div></div>
+          <div class="m-card"><div>CPA</div><div class="val">&#8377;${res.metrics.cpa}</div></div>
           <div class="m-card"><div>CTR</div><div class="val">${res.metrics.ctr}%</div></div>
-          <div class="m-card"><div>CPM</div><div class="val">₹${res.metrics.cpm}</div></div>
+          <div class="m-card"><div>CPM</div><div class="val">&#8377;${res.metrics.cpm}</div></div>
         `;
 
         let rowsHtml = '';
@@ -227,56 +232,34 @@ def parse_val(val):
     except ValueError:
         return 0.0
 
-def query_metabase_card_robust(session_headers, card_id, seller_id, start_date, end_date):
-    """Executes card query using multi-strategy parameter payloads covering all Metabase parameter schemas."""
+def query_single_card(item, session_headers, seller_id, start_date, end_date):
+    """Worker function to query a single Metabase card quickly with 3-second timeout."""
+    card_id = item["id"]
     query_url = f"{MB_BASE_URL}/api/card/{card_id}/query"
     
-    # Strategy 1: Standard template tag variable matching
-    payload_1 = {
-        "ignore_cache": True,
-        "parameters": [
-            {"type": "category", "target": ["variable", ["template-tag", "seller_id"]], "value": seller_id},
-            {"type": "date/single", "target": ["variable", ["template-tag", "start_date"]], "value": start_date},
-            {"type": "date/single", "target": ["variable", ["template-tag", "end_date"]], "value": end_date},
-            {"type": "category", "target": ["variable", ["template-tag", "seller"]], "value": seller_id},
-            {"type": "date/single", "target": ["variable", ["template-tag", "Start_date"]], "value": start_date},
-            {"type": "date/single", "target": ["variable", ["template-tag", "End_date"]], "value": end_date}
-        ]
-    }
+    payloads = [
+        {
+            "ignore_cache": True,
+            "parameters": [
+                {"type": "category", "target": ["variable", ["template-tag", "seller_id"]], "value": seller_id},
+                {"type": "date/single", "target": ["variable", ["template-tag", "start_date"]], "value": start_date},
+                {"type": "date/single", "target": ["variable", ["template-tag", "end_date"]], "value": end_date}
+            ]
+        },
+        {"ignore_cache": True}
+    ]
 
-    # Strategy 2: Direct dimension variable target
-    payload_2 = {
-        "ignore_cache": True,
-        "parameters": [
-            {"type": "category", "target": ["dimension", ["template-tag", "seller_id"]], "value": seller_id},
-            {"type": "date/single", "target": ["dimension", ["template-tag", "start_date"]], "value": start_date},
-            {"type": "date/single", "target": ["dimension", ["template-tag", "end_date"]], "value": end_date}
-        ]
-    }
-
-    for payload in [payload_1, payload_2]:
+    for p in payloads:
         try:
-            res = requests.post(query_url, headers=session_headers, json=payload, timeout=8)
+            res = requests.post(query_url, headers=session_headers, json=p, timeout=3)
             if res.status_code == 200:
                 data = res.json().get("data", {})
                 rows = data.get("rows", [])
                 cols = [c["name"].lower() for c in data.get("cols", [])]
                 if rows:
-                    return {"cols": cols, "rows": rows}
+                    return {"name": item["name"], "id": card_id, "cols": cols, "rows": rows}
         except Exception:
             pass
-
-    # Strategy 3: Try raw query without parameters if question has default values built-in
-    try:
-        res = requests.post(query_url, headers=session_headers, json={"ignore_cache": True}, timeout=6)
-        if res.status_code == 200:
-            data = res.json().get("data", {})
-            rows = data.get("rows", [])
-            cols = [c["name"].lower() for c in data.get("cols", [])]
-            if rows:
-                return {"cols": cols, "rows": rows}
-    except Exception:
-        pass
 
     return None
 
@@ -293,33 +276,39 @@ def diagnose():
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
 
-        # 1. Authenticate with Metabase
-        session_resp = requests.post(f"{MB_BASE_URL}/api/session", json={"username": username, "password": password}, timeout=10)
+        # 1. Metabase API Session Auth
+        session_resp = requests.post(f"{MB_BASE_URL}/api/session", json={"username": username, "password": password}, timeout=5)
         if session_resp.status_code != 200:
             return jsonify({"success": False, "error": "Invalid Metabase Credentials."})
         
         token = session_resp.json().get("id")
         headers = {"X-Metabase-Session": token, "Content-Type": "application/json"}
 
-        # 2. Query all Metabase questions with fallbacks
+        # 2. Parallel execution across all Metabase cards
         fetched_count = 0
         total_rows_extracted = 0
         metabase_findings = []
 
-        for item in METABASE_CONFIG:
-            result = query_metabase_card_robust(headers, item["id"], seller_id, start_date, end_date)
-            if result and result["rows"]:
-                fetched_count += 1
-                rowCount = len(result["rows"])
-                total_rows_extracted += rowCount
-                
-                q_name = item["name"]
-                metabase_findings.append({
-                    "type": "Metabase Data",
-                    "metric_shift": f"Successfully extracted {rowCount} records from Metabase Question '{q_name}' (ID: {item['id']}).",
-                    "impact": "High" if rowCount > 5 else "Medium",
-                    "fix_action": f"Columns parsed: {', '.join(result['cols'][:4])}. Dataset integrated into RCA."
-                })
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [
+                executor.submit(query_single_card, item, headers, seller_id, start_date, end_date)
+                for item in METABASE_CONFIG
+            ]
+            
+            for future in futures:
+                res = future.result()
+                if res and res["rows"]:
+                    fetched_count += 1
+                    rowCount = len(res["rows"])
+                    total_rows_extracted += rowCount
+                    q_name = res["name"]
+                    
+                    metabase_findings.append({
+                        "type": "Metabase Data",
+                        "metric_shift": f"Extracted {rowCount} records from Question '{q_name}' (ID: {res['id']}).",
+                        "impact": "High" if rowCount > 5 else "Medium",
+                        "fix_action": f"Columns parsed: {', '.join(res['cols'][:4])}. Live metrics integrated."
+                    })
 
         # 3. Parse Meta Marketing CSV
         last_csv = request.files.get('last_week_csv')
